@@ -87,7 +87,14 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release create "$env:GITHUB_REF_NAME" dist/ScreenshotSorter.exe `
-            --repo "$env:GITHUB_REPOSITORY" `
-            --title "ScreenshotSorter $env:GITHUB_REF_NAME" `
-            --generate-notes
+          # Web 画面から先に Release を作った場合は、そこに exe を追加（上書き）する
+          gh release view "$env:GITHUB_REF_NAME" --repo "$env:GITHUB_REPOSITORY" *> $null
+          if ($LASTEXITCODE -eq 0) {
+            gh release upload "$env:GITHUB_REF_NAME" dist/ScreenshotSorter.exe --repo "$env:GITHUB_REPOSITORY" --clobber
+          } else {
+            gh release create "$env:GITHUB_REF_NAME" dist/ScreenshotSorter.exe `
+              --repo "$env:GITHUB_REPOSITORY" `
+              --title "ScreenshotSorter $env:GITHUB_REF_NAME" `
+              --generate-notes
+          }
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
