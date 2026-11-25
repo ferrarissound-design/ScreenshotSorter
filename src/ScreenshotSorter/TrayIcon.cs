@@ -12,17 +12,22 @@ internal sealed class TrayIcon : IDisposable
     private readonly App _app;
     private readonly NotifyIcon _notifyIcon;
     private readonly System.Drawing.Icon _icon;
+    private readonly ToolStripMenuItem _pauseItem;
 
     public TrayIcon(App app)
     {
         _app = app;
         _icon = LoadIcon();
 
+        _pauseItem = new ToolStripMenuItem("一時停止", null, (_, _) => _app.TogglePause());
+
         var menu = new ContextMenuStrip();
         menu.Items.Add(new ToolStripMenuItem(AppInfo.DisplayName) { Enabled = false });
         menu.Items.Add(new ToolStripSeparator());
-        menu.Items.Add(new ToolStripMenuItem("ログフォルダを開く", null, (_, _) => OpenInExplorer(AppPaths.DataDirectory)));
+        menu.Items.Add(new ToolStripMenuItem("監視フォルダを開く", null, (_, _) => OpenInExplorer(_app.GetEffectiveWatchFolder())));
+        menu.Items.Add(_pauseItem);
         menu.Items.Add(new ToolStripSeparator());
+        menu.Items.Add(new ToolStripMenuItem("ログフォルダを開く", null, (_, _) => OpenInExplorer(AppPaths.DataDirectory, create: true)));
         menu.Items.Add(new ToolStripMenuItem("終了", null, (_, _) => _app.Quit()));
 
         _notifyIcon = new NotifyIcon
@@ -32,6 +37,21 @@ internal sealed class TrayIcon : IDisposable
             ContextMenuStrip = menu,
             Visible = true,
         };
+        // ダブルクリックで監視フォルダを開く
+        _notifyIcon.DoubleClick += (_, _) => OpenInExplorer(_app.GetEffectiveWatchFolder());
+
+        _app.StateChanged += UpdateState;
+        UpdateState();
+    }
+
+    private void UpdateState()
+    {
+        var running = _app.Watcher.IsRunning;
+        _pauseItem.Text = running ? "一時停止" : "再開";
+        var status = running ? "監視中" : _app.IsPaused ? "一時停止中" : "停止中";
+        var text = $"{AppInfo.DisplayName}（{status}）";
+        // NotifyIcon.Text は 127 文字まで
+        _notifyIcon.Text = text.Length > 127 ? text[..127] : text;
     }
 
     private static System.Drawing.Icon LoadIcon()
@@ -52,11 +72,11 @@ internal sealed class TrayIcon : IDisposable
         return (System.Drawing.Icon)System.Drawing.SystemIcons.Application.Clone();
     }
 
-    internal static void OpenInExplorer(string path)
+    internal static void OpenInExplorer(string path, bool create = false)
     {
         try
         {
-            Directory.CreateDirectory(path);
+            if (create) Directory.CreateDirectory(path);
             Process.Start(new ProcessStartInfo("explorer.exe", $"\"{path}\"") { UseShellExecute = true });
         }
         catch (Exception ex)
@@ -67,6 +87,7 @@ internal sealed class TrayIcon : IDisposable
 
     public void Dispose()
     {
+        _app.StateChanged -= UpdateState;
         _notifyIcon.Visible = false;
         _notifyIcon.ContextMenuStrip?.Dispose();
         _notifyIcon.Dispose();
