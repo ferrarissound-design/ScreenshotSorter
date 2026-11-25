@@ -26,6 +26,7 @@ internal sealed class TrayIcon : IDisposable
         menu.Items.Add(new ToolStripSeparator());
         menu.Items.Add(new ToolStripMenuItem("監視フォルダを開く", null, (_, _) => OpenInExplorer(_app.GetEffectiveWatchFolder())));
         menu.Items.Add(_pauseItem);
+        menu.Items.Add(new ToolStripMenuItem("設定...", null, (_, _) => _app.ShowSettings()));
         menu.Items.Add(new ToolStripSeparator());
         menu.Items.Add(new ToolStripMenuItem("ログフォルダを開く", null, (_, _) => OpenInExplorer(AppPaths.DataDirectory, create: true)));
         menu.Items.Add(new ToolStripMenuItem("終了", null, (_, _) => _app.Quit()));

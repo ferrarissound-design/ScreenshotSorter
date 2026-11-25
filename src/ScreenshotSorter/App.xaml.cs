@@ -45,6 +45,10 @@ public partial class App : System.Windows.Application
 
         _tray = new TrayIcon(this);
 
+        // exe を置き換え・移動した場合に Run キーのパスを追従させる
+        try { StartupRegistration.Apply(Settings.StartWithWindows); }
+        catch (Exception ex) { Log.Error("自動起動の設定を反映できませんでした", ex); }
+
         if (StartWatching() && Settings.SortExistingOnStartup)
         {
             Watcher.EnqueueExistingFiles();
@@ -93,6 +97,65 @@ public partial class App : System.Windows.Application
         {
             StateChanged?.Invoke();
         }
+    }
+
+    private SettingsWindow? _settingsWindow;
+
+    public void ShowSettings()
+    {
+        if (_settingsWindow != null)
+        {
+            _settingsWindow.Activate();
+            return;
+        }
+        _settingsWindow = new SettingsWindow(this);
+        _settingsWindow.Closed += (_, _) => _settingsWindow = null;
+        _settingsWindow.Show();
+        _settingsWindow.Activate();
+    }
+
+    /// <summary>設定を保存して反映する。失敗したらユーザーに知らせて false。</summary>
+    public bool ApplySettings(AppSettings newSettings)
+    {
+        var oldFolder = GetEffectiveWatchFolder();
+        try
+        {
+            SettingsStore.Save(newSettings);
+        }
+        catch (Exception ex)
+        {
+            Log.Error("設定の保存に失敗しました", ex);
+            System.Windows.MessageBox.Show($"設定を保存できませんでした。\n{ex.Message}\n\nログ：{AppPaths.LogFile}",
+                "ScreenshotSorter", MessageBoxButton.OK, MessageBoxImage.Error);
+            return false;
+        }
+
+        Settings = newSettings;
+        Log.Info($"設定を保存しました（監視フォルダ: {newSettings.WatchFolder ?? "既定"}, " +
+                 $"起動時に整理: {newSettings.SortExistingOnStartup}, 自動起動: {newSettings.StartWithWindows}）");
+
+        try
+        {
+            StartupRegistration.Apply(newSettings.StartWithWindows);
+        }
+        catch (Exception ex)
+        {
+            Log.Error("自動起動の設定に失敗しました", ex);
+            System.Windows.MessageBox.Show($"自動起動の設定に失敗しました。\n{ex.Message}",
+                "ScreenshotSorter", MessageBoxButton.OK, MessageBoxImage.Warning);
+        }
+
+        var newFolder = GetEffectiveWatchFolder();
+        if (!SettingsWindow.PathEquals(oldFolder, newFolder) && !IsPaused)
+        {
+            // 監視中（または開始に失敗して停止中）なら新しいフォルダで開始し直す
+            StartWatching();
+        }
+        else
+        {
+            StateChanged?.Invoke();
+        }
+        return true;
     }
 
     public void TogglePause()
