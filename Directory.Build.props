@@ -1,0 +1,18 @@
+<Project>
+  <PropertyGroup>
+    <LangVersion>latest</LangVersion>
+    <Nullable>enable</Nullable>
+    <!-- WPF と WinForms の型名衝突を避けるため暗黙 using は使わない -->
+    <ImplicitUsings>disable</ImplicitUsings>
+    <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
+    <DebugType>embedded</DebugType>
+
+    <!-- バージョンは CI から -p:Version=1.2.3 で上書きする（タグ v1.2.3 と一致させる） -->
+    <Version>0.0.0-dev</Version>
+    <Product>ScreenshotSorter</Product>
+    <Company>ScreenshotSorter</Company>
+    <Copyright>Copyright (c) ScreenshotSorter</Copyright>
+    <!-- InformationalVersion に "+コミットハッシュ" を付けない -->
+    <IncludeSourceRevisionInInformationalVersion>false</IncludeSourceRevisionInInformationalVersion>
+  </PropertyGroup>
+</Project>

@@ -1,0 +1,93 @@
+name: build
+
+on:
+  push:
+    branches: [main]
+    tags: ['v*.*.*']
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  DOTNET_NOLOGO: true
+  DOTNET_CLI_TELEMETRY_OPTOUT: true
+
+jobs:
+  build:
+    runs-on: windows-latest
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      # タグ v1.2.3 → 1.2.3。それ以外は 0.0.0-ci.<実行番号>
+      - name: Determine version
+        id: version
+        shell: pwsh
+        run: |
+          if ($env:GITHUB_REF -like 'refs/tags/v*') {
+            $v = $env:GITHUB_REF_NAME.Substring(1)
+            if ($v -notmatch '^\d+\.\d+\.\d+$') {
+              Write-Error "タグは v1.2.3 の形式にしてください: $env:GITHUB_REF_NAME"
+              exit 1
+            }
+          } else {
+            $v = "0.0.0-ci.$env:GITHUB_RUN_NUMBER"
+          }
+          "version=$v" >> $env:GITHUB_OUTPUT
+          Write-Host "Version: $v"
+
+      - name: Test
+        run: dotnet test tests/ScreenshotSorter.Tests/ScreenshotSorter.Tests.csproj -c Release --logger "console;verbosity=normal"
+
+      - name: Publish
+        run: >
+          dotnet publish src/ScreenshotSorter/ScreenshotSorter.csproj
+          -c Release -r win-x64 --self-contained true
+          -p:PublishSingleFile=true
+          -p:IncludeNativeLibrariesForSelfExtract=true
+          -p:Version=${{ steps.version.outputs.version }}
+          -o publish
+
+      - name: Check output
+        shell: pwsh
+        run: |
+          $exe = Get-Item publish/ScreenshotSorter.exe
+          "{0} ({1:N1} MB)" -f $exe.FullName, ($exe.Length / 1MB)
+          (Get-Item $exe).VersionInfo | Format-List ProductVersion, FileVersion
+          Get-ChildItem publish
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ScreenshotSorter-${{ steps.version.outputs.version }}
+          path: publish/ScreenshotSorter.exe
+          if-no-files-found: error
+
+  release:
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: build
+    runs-on: windows-latest
+    permissions:
+      contents: write   # Releases の作成と exe の添付に必要
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: ScreenshotSorter-${{ needs.build.outputs.version }}
+          path: dist
+
+      - name: Create GitHub Release
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "$env:GITHUB_REF_NAME" dist/ScreenshotSorter.exe `
+            --repo "$env:GITHUB_REPOSITORY" `
+            --title "ScreenshotSorter $env:GITHUB_REF_NAME" `
+            --generate-notes

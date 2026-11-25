@@ -1,0 +1,9 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/ScreenshotSorter.Core/ScreenshotSorter.Core.csproj" />
+    <Project Path="src/ScreenshotSorter/ScreenshotSorter.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/ScreenshotSorter.Tests/ScreenshotSorter.Tests.csproj" />
+  </Folder>
+</Solution>
