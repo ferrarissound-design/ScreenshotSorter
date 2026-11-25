@@ -1,0 +1,9 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- UI に依存しないロジック。Linux でもテストできるよう net10.0 のまま -->
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <RootNamespace>ScreenshotSorter.Core</RootNamespace>
+  </PropertyGroup>
+
+</Project>
